@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid">
+  <div class="card">
+    <h2>Mesures actuelles</h2>
+    <div id="current">
+      <div><strong>Température:</strong> <span id="t-val">—</span> °C</div>
+      <div><strong>Humidité:</strong> <span id="h-val">—</span> %</div>
+      <div><strong>Luminosité:</strong> <span id="l-val">—</span> lx</div>
+      <div><strong>Énergie consommée:</strong> <span id="eC-val">—</span> Wh</div>
+      <div><strong>Énergie produite:</strong> <span id="eP-val">—</span> Wh</div>
+      <div><strong>Eau consommée:</strong> <span id="w-val">—</span> L</div>
+      <div><small id="ts">—</small></div>
+    </div>
+    <div class="actuators">
+      <span class="chip" id="chip-heater">Chauffage</span>
+      <span class="chip" id="chip-fan">Ventilation</span>
+      <span class="chip" id="chip-pump">Pompe</span>
+      <span class="chip" id="chip-light">Éclairage</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Consignes & modes</h2>
+    <form id="setpoints-form">
+      <label>Température (°C) <input step="0.5" type="number" name="temperature" required></label>
+      <label>Humidité (%) <input step="1" type="number" name="humidity" required></label>
+      <label>Luminosité (lx) <input step="100" type="number" name="luminosity" required></label>
+      <button type="submit">Enregistrer</button>
+    </form>
+    <div class="modes">
+      <label class="switch">
+        <input type="checkbox" id="auto-toggle" checked>
+        <span>Mode Auto</span>
+      </label>
+      <div id="manual-controls" class="hidden">
+        <button data-act="heater_on">Chauffage</button>
+        <button data-act="fan_on">Ventilation</button>
+        <button data-act="pump_on">Pompe</button>
+        <button data-act="light_on">Éclairage</button>
+      </div>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card stretch">
+    <h2>Historique (dernières heures)</h2>
+    <div class="row">
+      <label>Fenêtre (heures)
+        <input type="number" id="hours" min="1" max="72" value="12">
+      </label>
+      <button id="reload">Recharger</button>
+    </div>
+    <canvas id="chart-temp"></canvas>
+    <canvas id="chart-humi"></canvas>
+    <canvas id="chart-lux"></canvas>
+    <canvas id="chart-energy"></canvas>
+    <canvas id="chart-water"></canvas>
+  </div>
+</section>
+{% endblock %}
