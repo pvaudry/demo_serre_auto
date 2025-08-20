@@ -1,5 +1,3 @@
-name: demoserreautonome
-
 services:
   app:
     build: .
@@ -20,16 +18,16 @@ services:
     environment:
       BROWSER: chrome
     volumes:
-      # Tes tests côté host -> dans le conteneur à l’emplacement attendu par l’image
       - ./tests:/opt/robotframework/tests:ro
-      # Répertoire de rapports
       - ./reports:/opt/robotframework/reports
-    # IMPORTANT : utiliser un chemin ABSOLU pour la suite de tests
-    command: [
-      "robot",
-      "-d", "/opt/robotframework/reports",
-      "--xunit", "/opt/robotframework/reports/xunit.xml",
-      "-v", "BASE_URL:http://app:5000",
-      "/opt/robotframework/tests"           # <— au lieu de "tests"
-    ]
+    # -> IMPORTANT: chemin ABSOLU vers le dossier monté
+    command:
+      - robot
+      - -d
+      - /opt/robotframework/reports
+      - --xunit
+      - /opt/robotframework/reports/xunit.xml
+      - -v
+      - BASE_URL:http://app:5000
+      - /opt/robotframework/tests   # <= ici, plus "tests" relatif
     restart: "no"
