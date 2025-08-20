@@ -255,6 +255,10 @@ def api_actuators():
         db.session.commit()
     return jsonify({"ok": True})
 
+@app.route("/healthz")
+def healthz():
+    return "ok", 200
+
 # Entrée
 if __name__ == "__main__":
     app.run(debug=True)

@@ -11,13 +11,13 @@ ${WINDOW_HEIGHT}  768
 
 *** Keywords ***
 Wait App API
-    [Documentation]    Boucle jusqu’à ce que /api/latest réponde 200.
     Create Session    app    ${BASE_URL}
-    Wait Until Keyword Succeeds    30x    2s    App Should Respond 200
+    Wait Until Keyword Succeeds    60x    1s    App Should Respond 200
 
 App Should Respond 200
-    ${resp}=    GET On Session    app    /api/latest    expected_status=any
+    ${resp}=    GET On Session    app    /healthz    expected_status=any
     Should Be Equal As Integers    ${resp.status_code}    200
+
 
 Open Browser To App
     [Arguments]    ${base_url}

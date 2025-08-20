@@ -5,10 +5,11 @@ services:
     build: .
     image: serre-app:ci
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:5000/api/latest"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 20
+      start_period: 10s
 
   chrome:
     image: selenium/standalone-chrome:latest
