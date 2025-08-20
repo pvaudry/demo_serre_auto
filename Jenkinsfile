@@ -58,4 +58,13 @@ pipeline {
       }
     }
   }
+
+   post {
+    always {
+      // XML JUnit de Robot
+      junit 'reports/xunit.xml'
+      // HTML, logs, screenshots…
+      archiveArtifacts artifacts: 'reports/**', fingerprint: true, allowEmptyArchive: true
+    }
+  }
 }
