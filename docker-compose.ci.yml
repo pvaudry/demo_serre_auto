@@ -4,35 +4,34 @@ services:
   app:
     build: .
     image: serre-app:ci
+    container_name: serre-app
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/latest"]
       interval: 5s
-      timeout: 2s
-      retries: 20
-      start_period: 10s
+      timeout: 3s
+      retries: 30
 
   chrome:
-    image: selenium/standalone-chrome:latest
-    shm_size: 2g
+    image: selenium/standalone-chrome:4.25.0
+    container_name: chrome
+    shm_size: 2g   # évite beaucoup d’erreurs Chrome dans Docker
 
   robot:
     image: ppodgorsek/robot-framework:latest
+    container_name: serre-tests
     depends_on:
       app:
         condition: service_healthy
-      chrome:
-        condition: service_started
     environment:
-      ROBOT_TESTS_DIR: /opt/robotframework/tests
-      ROBOT_REPORTS_DIR: /opt/robotframework/reports
-      SELENIUM_HOST: chrome
-      SELENIUM_PORT: 4444
+      BROWSER: Remote
+      ROBOT_OPTIONS: ""           # (laisse vide)
     volumes:
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
-    command: >
-      robot
-      -d /opt/robotframework/reports
-      --xunit /opt/robotframework/reports/xunit.xml
-      -v BASE_URL:http://app:5000
-      tests
+    # IMPORTANT: pas de /temp/ ; passes bien BASE_URL et le bon chemin de tests
+    command: [
+      "-d","/opt/robotframework/reports",
+      "-v","BASE_URL:http://app:5000",
+      "-v","SELENIUM_REMOTE_URL:http://chrome:4444/wd/hub",
+      "/opt/robotframework/tests"
+    ]

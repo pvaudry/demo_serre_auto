@@ -26,28 +26,36 @@ pipeline {
           $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
           if (-not (Test-Path $docker)) { $docker = 'docker' }
 
-          $compose = Join-Path $pwd 'docker-compose.ci.yml'
-          if (-not (Test-Path $compose)) { throw "Fichier introuvable: $compose" }
+          $compose = @('-f','docker-compose.ci.yml')
 
-          # Lancer et faire échouer le job si 'robot' retourne un code != 0
-          & $docker compose -f $compose up --abort-on-container-exit --exit-code-from robot
+          # On (re)crée proprement
+          & $docker compose @compose down -v | Out-Null
+
+          # Démarre app + chrome en arrière-plan
+          & $docker compose @compose up -d app chrome
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # Attente active de l'app (jusqu'à 2 min)
+          $deadline = (Get-Date).AddMinutes(2)
+          do {
+            Start-Sleep -Seconds 2
+            try {
+              $r = Invoke-WebRequest -UseBasicParsing http://localhost:5000/api/latest
+              if ($r.StatusCode -eq 200) { $ok=$true }
+            } catch { $ok=$false }
+          } while (-not $ok -and (Get-Date) -lt $deadline)
+          if (-not $ok) { throw "L'app n'est pas prête après 2 minutes" }
+
+          # Lancer la suite Robot (service robot)
+          & $docker compose @compose up --abort-on-container-exit --exit-code-from robot robot
           $code = $LASTEXITCODE
 
-          # Nettoyage (ne casse pas le build)
-          try { & $docker compose -f $compose down -v | Out-Null } catch {}
+          # Nettoyage
+          & $docker compose @compose down -v | Out-Null
 
-          if ($code -ne 0) { exit $code }
+          exit $code
         '''
       }
-    }
-  }
-
-  post {
-    always {
-      // XML JUnit de Robot
-      junit 'reports/xunit.xml'
-      // HTML, logs, screenshots…
-      archiveArtifacts artifacts: 'reports/**', fingerprint: true, allowEmptyArchive: true
     }
   }
 }

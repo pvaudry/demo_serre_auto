@@ -1,43 +1,16 @@
 *** Settings ***
-Library    SeleniumLibrary    timeout=30s
-Library    RequestsLibrary
+Library    SeleniumLibrary
 
 *** Variables ***
-${TIMEOUT}        45s
-${REMOTE_URL}     http://chrome:4444/wd/hub
-${BROWSER}        chrome
-${WINDOW_WIDTH}   1366
-${WINDOW_HEIGHT}  768
+${TIMEOUT}    30s
 
 *** Keywords ***
-Wait App API
-    Create Session    app    ${BASE_URL}
-    Wait Until Keyword Succeeds    60x    1s    App Should Respond 200
-
-App Should Respond 200
-    ${resp}=    GET On Session    app    /healthz    expected_status=any
-    Should Be Equal As Integers    ${resp.status_code}    200
-
-Open Browser To App
-    [Arguments]    ${base_url}
-    Wait App API
-    Open Browser    about:blank    ${BROWSER}    remote_url=${REMOTE_URL}
-    Set Window Size    ${WINDOW_WIDTH}    ${WINDOW_HEIGHT}
+Open App
+    [Arguments]    ${base}
+    Open Browser    ${base}    Remote
+    ...    remote_url=${SELENIUM_REMOTE_URL}
+    ...    options=add_argument(--no-sandbox);add_argument(--disable-dev-shm-usage)
     Set Selenium Timeout    ${TIMEOUT}
-    Go To    ${base_url}
 
-Dump Page On Failure
-    Run Keyword And Ignore Error    Capture Page Screenshot
-    ${src}=    Get Source
-    Log    ${src}    level=DEBUG
-
-Set Setpoints
-    [Arguments]    ${temp}    ${humi}    ${lux}
-    Wait Until Element Is Visible    css:form#setpoints-form input[name="temperature"]
-    Input Text    css:form#setpoints-form input[name="temperature"]    ${temp}
-    Input Text    css:form#setpoints-form input[name="humidity"]       ${humi}
-    Input Text    css:form#setpoints-form input[name="luminosity"]     ${lux}
-    Click Button    css:form#setpoints-form button[type="submit"]
-
-Reload History
-    Click Button    id=reload
+Wait App Ready
+    Wait Until Page Contains Element    css:body    ${TIMEOUT}
