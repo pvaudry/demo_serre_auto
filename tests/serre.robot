@@ -1,5 +1,5 @@
 *** Settings ***
-Resource    ressources.robot
+Resource        ressources.robot
 Suite Setup     Open Browser To App    ${BASE_URL}
 Suite Teardown  Close All Browsers
 
@@ -24,4 +24,5 @@ Historique Se Dessine Et Se Recharge
 
 Modification Des Consignes
     Set Setpoints    27    58    15400
+    # Le message flash apparaît dans la zone d’alertes ; on tolère la version sans emoji
     Wait Until Page Contains    Consignes mises à jour
