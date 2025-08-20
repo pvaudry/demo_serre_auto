@@ -32,10 +32,6 @@ services:
         condition: service_healthy
       chrome:
         condition: service_healthy
-    environment:
-      BROWSER: chrome
-      BASE_URL: http://app:5000
-      REMOTE_URL: http://chrome:4444/wd/hub
     volumes:
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
@@ -45,4 +41,9 @@ services:
       - /opt/robotframework/reports
       - --xunit
       - /opt/robotframework/reports/xunit.xml
+      - -v
+      - BASE_URL:http://app:5000
+      - -v
+      - REMOTE_URL:http://chrome:4444/wd/hub
       - /opt/robotframework/tests
+
