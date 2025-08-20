@@ -18,7 +18,6 @@ App Should Respond 200
     ${resp}=    GET On Session    app    /healthz    expected_status=any
     Should Be Equal As Integers    ${resp.status_code}    200
 
-
 Open Browser To App
     [Arguments]    ${base_url}
     Wait App API
