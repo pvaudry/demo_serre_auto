@@ -1,3 +1,5 @@
+name: demoserreautonome
+
 services:
   app:
     build: .
@@ -20,8 +22,12 @@ services:
     volumes:
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
-    command: >
-      -d /opt/robotframework/reports
-      --xunit /opt/robotframework/reports/xunit.xml
-      -v BASE_URL:http://app:5000
-      tests
+    # IMPORTANT: préciser le binaire 'robot'
+    command: [
+      "robot",
+      "-d", "/opt/robotframework/reports",
+      "--xunit", "/opt/robotframework/reports/xunit.xml",
+      "-v", "BASE_URL:http://app:5000",
+      "tests"
+    ]
+    restart: "no"
