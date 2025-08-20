@@ -28,4 +28,4 @@ EXPOSE 5000
 HEALTHCHECK --interval=10s --timeout=3s --retries=10 CMD curl -fs http://localhost:5000/api/latest || exit 1
 
 # Démarre Flask via Gunicorn
-CMD ["gunicorn", "--bind=0.0.0.0:5000", "--workers=2", "--threads=4", "app:app"]
+CMD ["gunicorn", "--bind=0.0.0.0:5000", "--workers=1", "--threads=4", "app:app"]

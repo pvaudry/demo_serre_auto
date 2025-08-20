@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   app:
     build: .
@@ -22,7 +20,6 @@ services:
     volumes:
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
-    # IMPORTANT : génération du JUnit XML pour Blue Ocean
     command: >
       -d /opt/robotframework/reports
       --xunit /opt/robotframework/reports/xunit.xml
