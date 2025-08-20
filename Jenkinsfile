@@ -1,15 +1,19 @@
 pipeline {
   agent any
-  options { timestamps(); ansiColor('xterm') }
+  options { timestamps() }
   environment { DOCKER_BUILDKIT = '1' }
 
   stages {
-    stage('Checkout') { steps { checkout scm } }
+    stage('Checkout') {
+      steps { checkout scm }
+    }
 
-    stage('Docker version') {
+    stage('Docker/Compose version') {
       steps {
-        powershell 'docker version'
-        powershell 'docker compose version'
+        powershell '''
+          docker version
+          try { docker compose version } catch { if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose --version } }
+        '''
       }
     }
 
@@ -22,9 +26,27 @@ pipeline {
     stage('Run tests (Robot)') {
       steps {
         powershell '''
-          if (Test-Path reports) { Remove-Item -Recurse -Force reports }
-          New-Item -ItemType Directory -Force -Path reports | Out-Null
-          docker compose -f docker-compose.ci.yml up --abort-on-container-exit --exit-code-from robot
+          $ErrorActionPreference = "Stop"
+
+          # Détecte la bonne commande compose (v2 vs v1)
+          $composeCmd = "docker compose"
+          try { & docker compose version | Out-Null }
+          catch {
+            if (Get-Command docker-compose -ErrorAction SilentlyContinue) { $composeCmd = "docker-compose" }
+            else { throw "Ni 'docker compose' ni 'docker-compose' n'est disponible." }
+          }
+
+          # Chemin du fichier compose (gère les espaces dans le workspace)
+          $composeFile = Join-Path $pwd "docker-compose.ci.yml"
+
+          # Lancer les services et faire échouer sur le code du conteneur robot
+          & $composeCmd -f $composeFile up --abort-on-container-exit --exit-code-from robot
+          $code = $LASTEXITCODE
+
+          # Toujours tenter un down (sans casser le build si ça rate)
+          try { & $composeCmd -f $composeFile down -v | Out-Null } catch { Write-Host "compose down a échoué (ignoré): $($_.Exception.Message)" }
+
+          if ($code -ne 0) { exit $code }
         '''
       }
     }
@@ -32,8 +54,9 @@ pipeline {
 
   post {
     always {
-      powershell 'docker compose -f docker-compose.ci.yml down -v || $true'
+      // Archive les rapports Robot même en cas d'échec
       archiveArtifacts artifacts: 'reports/**', fingerprint: true, allowEmptyArchive: true
+      // (Optionnel) publier le report HTML si plugin installé
       script {
         if (fileExists('reports/report.html')) {
           publishHTML(target: [
