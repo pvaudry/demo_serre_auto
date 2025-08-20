@@ -1,10 +1,13 @@
+name: demoserreautonome
+
 services:
   app:
     build: .
     image: serre-app:ci
     container_name: serre-app
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:5000/api/latest"]
+      # CMD-SHELL évite certains soucis de parsing sous Windows
+      test: ["CMD-SHELL", "curl -fs http://localhost:5000/api/latest || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -17,10 +20,14 @@ services:
         condition: service_healthy
     environment:
       BROWSER: chrome
+      TZ: Europe/Paris
     volumes:
+      # Tests en lecture seule et rapports persistés pour Jenkins
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
-    # -> IMPORTANT: chemin ABSOLU vers le dossier monté
+    # IMPORTANT :
+    #  - chemin ABSOLU des tests (dans le conteneur)
+    #  - injection d'une variable Robot SELENIUM_OPTIONS contenant les flags Chrome
     command:
       - robot
       - -d
@@ -29,5 +36,7 @@ services:
       - /opt/robotframework/reports/xunit.xml
       - -v
       - BASE_URL:http://app:5000
-      - /opt/robotframework/tests   # <= ici, plus "tests" relatif
+      - -v
+      - SELENIUM_OPTIONS:--no-sandbox --disable-dev-shm-usage --user-data-dir=/tmp/chrome-profile
+      - /opt/robotframework/tests
     restart: "no"
