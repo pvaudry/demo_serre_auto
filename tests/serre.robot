@@ -1,5 +1,5 @@
 *** Settings ***
-Resource    ressources.robot
+Resource        ressources.robot
 Suite Setup     Open Browser To App    ${BASE_URL}
 Suite Teardown  Close All Browsers
 

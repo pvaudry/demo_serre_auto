@@ -6,10 +6,24 @@ services:
     image: serre-app:ci
     container_name: serre-app
     healthcheck:
-      # CMD-SHELL évite certains soucis de parsing sous Windows
       test: ["CMD-SHELL", "curl -fs http://localhost:5000/api/latest || exit 1"]
       interval: 10s
       timeout: 3s
+      retries: 10
+
+  # Chrome standalone officiel (Selenium)
+  chrome:
+    image: selenium/standalone-chrome:4.23.0-20240828
+    container_name: chrome
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+    healthcheck:
+      # pas de jq : on teste juste que /status contient 'ready'
+      test: ["CMD-SHELL", "curl -fs http://localhost:4444/status | grep -q ready || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 10
 
   robot:
@@ -18,25 +32,21 @@ services:
     depends_on:
       app:
         condition: service_healthy
+      chrome:
+        condition: service_healthy
     environment:
       BROWSER: chrome
+      BASE_URL: http://app:5000
+      REMOTE_URL: http://chrome:4444/wd/hub
       TZ: Europe/Paris
     volumes:
-      # Tests en lecture seule et rapports persistés pour Jenkins
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
-    # IMPORTANT :
-    #  - chemin ABSOLU des tests (dans le conteneur)
-    #  - injection d'une variable Robot SELENIUM_OPTIONS contenant les flags Chrome
     command:
       - robot
       - -d
       - /opt/robotframework/reports
       - --xunit
       - /opt/robotframework/reports/xunit.xml
-      - -v
-      - BASE_URL:http://app:5000
-      - -v
-      - SELENIUM_OPTIONS:--no-sandbox --disable-dev-shm-usage --user-data-dir=/tmp/chrome-profile
       - /opt/robotframework/tests
     restart: "no"
