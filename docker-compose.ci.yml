@@ -11,16 +11,15 @@ services:
       timeout: 3s
       retries: 10
 
-  # Chrome standalone officiel (Selenium)
+  # Chrome standalone officiel (tag stable)
   chrome:
-    image: selenium/standalone-chrome:4.23.0-20240828
+    image: selenium/standalone-chrome:latest
     container_name: chrome
     shm_size: 2g
     environment:
       - SE_NODE_MAX_SESSIONS=1
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true
     healthcheck:
-      # pas de jq : on teste juste que /status contient 'ready'
       test: ["CMD-SHELL", "curl -fs http://localhost:4444/status | grep -q ready || exit 1"]
       interval: 10s
       timeout: 5s
@@ -37,6 +36,7 @@ services:
     environment:
       BROWSER: chrome
       BASE_URL: http://app:5000
+      # SeleniumLibrary accepte très bien /wd/hub ; on le garde par compatibilité
       REMOTE_URL: http://chrome:4444/wd/hub
       TZ: Europe/Paris
     volumes:
