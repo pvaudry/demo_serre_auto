@@ -11,9 +11,8 @@ services:
       timeout: 3s
       retries: 10
 
-  # Chrome standalone officiel (tag stable)
   chrome:
-    image: selenium/standalone-chrome:latest
+    image: selenium/standalone-chrome:latest   # ✅ tag qui existe
     container_name: chrome
     shm_size: 2g
     environment:
@@ -36,9 +35,7 @@ services:
     environment:
       BROWSER: chrome
       BASE_URL: http://app:5000
-      # SeleniumLibrary accepte très bien /wd/hub ; on le garde par compatibilité
       REMOTE_URL: http://chrome:4444/wd/hub
-      TZ: Europe/Paris
     volumes:
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
@@ -49,4 +46,3 @@ services:
       - --xunit
       - /opt/robotframework/reports/xunit.xml
       - /opt/robotframework/tests
-    restart: "no"
