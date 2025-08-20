@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 import threading
 
@@ -16,7 +16,8 @@ db = SQLAlchemy(app)
 # =========================
 class Reading(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    # timestamp aware (UTC)
+    timestamp = db.Column(db.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
     temperature = db.Column(db.Float)
     humidity = db.Column(db.Float)
     luminosity = db.Column(db.Float)  # lux
@@ -41,9 +42,8 @@ class Config(db.Model):
 # =========================
 with app.app_context():
     db.create_all()
-    if Config.query.get(1) is None:
+    if db.session.get(Config, 1) is None:  # SQLAlchemy 2.0
         db.session.add(Config(id=1))
-        # seed une première mesure
         base = Reading(
             temperature=22.0,
             humidity=55.0,
@@ -57,13 +57,18 @@ with app.app_context():
 
 lock = threading.Lock()
 
+@app.context_processor
+def inject_now():
+    # Rend disponible {{ current_year }} dans tous les templates
+    return {"current_year": datetime.now(timezone.utc).year}
+
 # =========================
 # Simulateur + contrôle auto
 # =========================
 def simulate_and_control():
     """Simule l’arrivée d’une mesure et applique un contrôle simple en mode auto."""
     with app.app_context():
-        cfg = Config.query.get(1)
+        cfg = db.session.get(Config, 1)  # SQLAlchemy 2.0
         last = Reading.query.order_by(Reading.timestamp.desc()).first()
 
         # --- bruit + dynamique simple
@@ -92,7 +97,7 @@ def simulate_and_control():
             # Irrigation simple : si humidité < consigne - 5
             pump_on = humi < (cfg.set_humi - 5)
             # Lumière si luminosité < consigne (jour simulé 06:00–20:00)
-            hour = datetime.utcnow().hour
+            hour = datetime.now(timezone.utc).hour
             is_day = 6 <= hour <= 20
             light_on = is_day and (lux < cfg.set_lux)
 
@@ -113,7 +118,7 @@ def simulate_and_control():
             e_conso += 50 * dt_min
 
         # Production PV (jour)
-        hour = datetime.utcnow().hour
+        hour = datetime.now(timezone.utc).hour
         if 8 <= hour <= 18:
             pv = max(0, 100 - abs(13 - hour) * 15)  # courbe en cloche grossière (W)
             e_prod += pv * dt_min
@@ -133,6 +138,7 @@ def simulate_and_control():
             cfg.light_on = light_on
             db.session.add(
                 Reading(
+                    # timestamp par défaut déjà UTC aware via default=...
                     temperature=temp,
                     humidity=humi,
                     luminosity=lux,
@@ -161,7 +167,7 @@ def dashboard():
 @app.route("/api/latest")
 def api_latest():
     last = Reading.query.order_by(Reading.timestamp.desc()).first()
-    cfg = Config.query.get(1)
+    cfg = db.session.get(Config, 1)
     return jsonify({
         "timestamp": last.timestamp.isoformat(),
         "temperature": last.temperature,
@@ -182,7 +188,7 @@ def api_latest():
 def api_history():
     # par défaut : dernières 24h (simulées). On limite à 500 points.
     hours = float(request.args.get("hours", 24))
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     q = (Reading.query
          .filter(Reading.timestamp >= since)
          .order_by(Reading.timestamp.asc()))
@@ -199,7 +205,7 @@ def api_history():
 
 @app.route("/api/config", methods=["GET"])
 def api_get_config():
-    cfg = Config.query.get(1)
+    cfg = db.session.get(Config, 1)
     return jsonify({
         "setpoints": {"temperature": cfg.set_temp, "humidity": cfg.set_humi, "luminosity": cfg.set_lux},
         "auto_mode": cfg.auto_mode
@@ -215,7 +221,7 @@ def api_setpoints():
     except (TypeError, ValueError):
         abort(400, "Paramètres invalides")
     with lock:
-        cfg = Config.query.get(1)
+        cfg = db.session.get(Config, 1)
         cfg.set_temp, cfg.set_humi, cfg.set_lux = t, h, l
         db.session.commit()
     return jsonify({"ok": True})
@@ -227,7 +233,7 @@ def api_mode():
     if not isinstance(auto, bool):
         abort(400, "Champ 'auto' requis (booléen).")
     with lock:
-        cfg = Config.query.get(1)
+        cfg = db.session.get(Config, 1)
         cfg.auto_mode = auto
         db.session.commit()
     return jsonify({"ok": True, "auto_mode": auto})
@@ -239,7 +245,7 @@ def api_actuators():
     if not set(payload.keys()).issubset(keys):
         abort(400, "Clés autorisées: heater_on, fan_on, pump_on, light_on.")
     with lock:
-        cfg = Config.query.get(1)
+        cfg = db.session.get(Config, 1)
         if not cfg.auto_mode:
             for k, v in payload.items():
                 if isinstance(v, bool):

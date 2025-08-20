@@ -41,7 +41,14 @@ async function loadHistory() {
   const hours = parseFloat(document.getElementById("hours").value || "12");
   const res = await fetch(`/api/history?hours=${hours}`);
   const data = await res.json();
-  const labels = data.map(p => new Date(p.t));
+
+  if (!Array.isArray(data) || data.length === 0) {
+    clearAllCharts();
+    return;
+  }
+
+  // Labels en TEXTE (compatibles axe category)
+  const labels = data.map(p => fmtTs(p.t));
 
   const sets = {
     temperature: data.map(p => p.temperature),
@@ -52,31 +59,52 @@ async function loadHistory() {
     water_consumed: data.map(p => p.water_consumed),
   };
 
-  renderLine("chart-temp", labels, [{label: "Température (°C)", data: sets.temperature}]);
-  renderLine("chart-humi", labels, [{label: "Humidité (%)", data: sets.humidity}]);
-  renderLine("chart-lux", labels, [{label: "Luminosité (lx)", data: sets.luminosity}]);
+  renderLine("chart-temp", labels, [{ label: "Température (°C)", data: sets.temperature }]);
+  renderLine("chart-humi", labels, [{ label: "Humidité (%)", data: sets.humidity }]);
+  renderLine("chart-lux", labels, [{ label: "Luminosité (lx)", data: sets.luminosity }]);
   renderLine("chart-energy", labels, [
-    {label: "Énergie consommée (Wh)", data: sets.energy_consumed},
-    {label: "Énergie produite (Wh)", data: sets.energy_produced}
+    { label: "Énergie consommée (Wh)", data: sets.energy_consumed },
+    { label: "Énergie produite (Wh)", data: sets.energy_produced }
   ]);
-  renderLine("chart-water", labels, [{label: "Eau consommée (L)", data: sets.water_consumed}]);
+  renderLine("chart-water", labels, [{ label: "Eau consommée (L)", data: sets.water_consumed }]);
 }
 
+function clearAllCharts() {
+  ["chart-temp","chart-humi","chart-lux","chart-energy","chart-water"].forEach(id => {
+    if (charts[id]) { charts[id].destroy(); charts[id] = null; }
+    const c = document.getElementById(id);
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+  });
+}
+
+// === Patch anti-"flash puis blanc": taille explicite + responsive:false
 function renderLine(id, labels, datasets) {
-  const ctx = document.getElementById(id).getContext("2d");
+  const canvas = document.getElementById(id);
+  const parent = canvas.parentElement;
+
+  // Fixer taille bitmap pour éviter width/height = 0 après reflow
+  const w = Math.max(320, parent.clientWidth || 800);
+  const h = 180; // hauteur désirée
+  canvas.width = w;
+  canvas.height = h;
+
+  const ctx = canvas.getContext("2d");
   if (charts[id]) charts[id].destroy();
+
   charts[id] = new Chart(ctx, {
     type: "line",
     data: { labels, datasets },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: false,     // très important pour éviter un recalcul à 0px
+      animation: false,      // (optionnel) supprime micro-anim
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { position: "top" } },
       scales: {
-        x: { type: "time", time: { unit: "minute" } },
+        x: { type: "category", ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
         y: { beginAtZero: false }
-      }
+      },
+      spanGaps: true
     }
   });
 }
@@ -84,7 +112,7 @@ function renderLine(id, labels, datasets) {
 async function postJSON(url, body) {
   const res = await fetch(url, {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
   if (!res.ok) {
@@ -140,18 +168,21 @@ function bindControls() {
   document.getElementById("reload").addEventListener("click", loadHistory);
 }
 
-function showMsg(text, error=false) {
+function showMsg(text, error = false) {
   const el = document.getElementById("msg");
   el.textContent = text;
   el.className = error ? "error" : "ok";
-  setTimeout(() => { el.textContent = ""; el.className=""; }, 3000);
+  setTimeout(() => { el.textContent = ""; el.className = ""; }, 3000);
 }
 
 async function tick() {
-  try {
-    await loadLatest();
-  } catch {}
+  try { await loadLatest(); } catch {}
 }
+
+// Recalcule la taille des canvas si la fenêtre change
+window.addEventListener("resize", () => {
+  loadHistory();
+});
 
 window.addEventListener("load", async () => {
   bindControls();

@@ -6,6 +6,8 @@
   <title>Serre autonome</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- L’adapter temps est optionnel désormais (on utilise un axe category robuste) -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script> -->
 </head>
 <body>
   <header>
@@ -15,7 +17,7 @@
     {% block content %}{% endblock %}
   </main>
   <footer>
-    <small>Prototype démo — Flask + SQLite — {{ "%Y" | strftime }}</small>
+    <small>Prototype démo — Flask + SQLite — {{ current_year }}</small>
   </footer>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

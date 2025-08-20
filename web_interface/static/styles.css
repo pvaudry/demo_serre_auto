@@ -70,3 +70,6 @@ button:hover { border-color: var(--accent); }
 
 #msg.ok { color: var(--ok); margin-top: 8px; }
 #msg.error { color: var(--err); margin-top: 8px; }
+
+canvas { display: block; }
+.stretch canvas { height: 180px; } /* la vraie taille est fixée par le JS (bitmap) */
