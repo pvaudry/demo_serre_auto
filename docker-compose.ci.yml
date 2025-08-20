@@ -1,10 +1,8 @@
 version: "3.8"
-
 services:
   app:
     build: .
     image: serre-app:ci
-    container_name: serre-app
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:5000/api/latest"]
       interval: 10s
@@ -13,13 +11,11 @@ services:
 
   robot:
     image: ppodgorsek/robot-framework:latest
-    container_name: serre-tests
     depends_on:
       app:
         condition: service_healthy
     environment:
       BROWSER: chrome
-      ROBOT_OPTIONS: ""
     volumes:
       - ./tests:/opt/robotframework/tests:ro
       - ./reports:/opt/robotframework/reports
