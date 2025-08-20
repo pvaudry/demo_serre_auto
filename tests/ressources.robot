@@ -2,29 +2,22 @@
 Library    SeleniumLibrary
 
 *** Variables ***
-${TIMEOUT}            10s
-${BROWSER}            ${EMPTY}
-${SELENIUM_OPTIONS}   ${EMPTY}    # injectée par docker-compose (peut rester vide)
+${TIMEOUT}     10s
 
 *** Keywords ***
 Open Browser To App
     [Arguments]    ${base_url}
-    # Navigateur par défaut = chrome si non fourni
-    ${br}=    Set Variable If    '${BROWSER}'!=''    ${BROWSER}    chrome
-
-    # Si SELENIUM_OPTIONS est défini (ex: "--no-sandbox --disable-dev-shm-usage --user-data-dir=/tmp/chrome-profile")
-    # on le passe à Open Browser, sinon on ouvre sans options.
-    ${has_opts}=    Run Keyword And Return Status    Should Not Be Empty    ${SELENIUM_OPTIONS}
-    Run Keyword If    ${has_opts}
-    ...    Open Browser    ${base_url}    ${br}    options=${SELENIUM_OPTIONS}
-    ...    ELSE
-    ...    Open Browser    ${base_url}    ${br}
-
+    Open Browser    ${base_url}    chrome
+    ...    options=add_argument(--no-sandbox)
+    ...    options=add_argument(--disable-dev-shm-usage)
+    ...    options=add_argument(--disable-gpu)
+    ...    options=add_argument(--disable-software-rasterizer)
+    ...    options=add_argument(--remote-allow-origins=*)
+    ...    options=add_argument(--user-data-dir=/tmp/chrome-profile)
     Set Selenium Timeout    ${TIMEOUT}
     Maximize Browser Window
 
 Wait For Dashboard
-    # Le canvas du premier graphique doit être présent
     Wait Until Page Contains Element    css:canvas#chart-temp    ${TIMEOUT}
 
 Set Setpoints
