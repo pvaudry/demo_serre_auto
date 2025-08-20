@@ -14,19 +14,8 @@ pipeline {
           $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
           if (-not (Test-Path $docker)) { $docker = 'docker' }
 
-          & $docker 'version'
-          try {
-            & $docker 'compose' 'version'
-            Write-Host "Compose v2 détecté via: $docker compose"
-          } catch {
-            $dc = (Get-Command docker-compose -ErrorAction SilentlyContinue)
-            if ($dc) {
-              & $dc.Source '--version'
-              Write-Host "Compose v1 détecté: $($dc.Source)"
-            } else {
-              throw "Ni 'docker compose' (v2) ni 'docker-compose' (v1) disponible."
-            }
-          }
+          & $docker version
+          & $docker compose version
         '''
       }
     }
@@ -37,7 +26,7 @@ pipeline {
           $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
           if (-not (Test-Path $docker)) { $docker = 'docker' }
 
-          & $docker 'build' '-t' 'serre-app:ci' '.'
+          & $docker build -t serre-app:ci .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         '''
       }
@@ -47,7 +36,6 @@ pipeline {
       steps {
         powershell '''
           $ErrorActionPreference = "Stop"
-
           $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
           if (-not (Test-Path $docker)) { $docker = 'docker' }
 
@@ -55,17 +43,16 @@ pipeline {
           Write-Host "Compose file path: $composeFile"
           if (-not (Test-Path $composeFile)) { throw "Fichier introuvable: $composeFile" }
 
-          # Vérifie la config
-          & $docker 'compose' '-f' $composeFile 'config'
+          # Valide la config
+          & $docker compose -f $composeFile config
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          # Lance les tests et renvoie le code du conteneur 'robot'
-          & $docker 'compose' '-f' $composeFile 'up' '--abort-on-container-exit' '--exit-code-from' 'robot'
+          # Lance et récupère le code du conteneur 'robot'
+          & $docker compose -f $composeFile up --abort-on-container-exit --exit-code-from robot
           $code = $LASTEXITCODE
 
           # Nettoyage
-          try { & $docker 'compose' '-f' $composeFile 'down' '-v' | Out-Null }
-          catch { Write-Host "compose down ignoré: $($_.Exception.Message)" }
+          try { & $docker compose -f $composeFile down -v | Out-Null } catch { }
 
           if ($code -ne 0) { exit $code }
         '''
@@ -75,25 +62,13 @@ pipeline {
 
   post {
     always {
-      // 1) Blue Ocean: consomme le JUnit XML
-      junit 'reports/*.xml'
+      // Blue Ocean : consomme le XML produit par Robot
+      // (c’est /opt/robotframework/reports/xunit.xml dans le conteneur,
+      // monté côté hôte sur ./reports)
+      junit allowEmptyResults: true, testResults: 'reports/xunit.xml'
 
-      // 2) Archives des rapports Robot (report.html, log.html, etc.)
+      // Archive les pages HTML de Robot
       archiveArtifacts artifacts: 'reports/**', fingerprint: true, allowEmptyArchive: true
-
-      // 3) (optionnel) Publication du HTML si tu as le plugin HTML Publisher
-      script {
-        if (fileExists('reports/report.html')) {
-          publishHTML(target: [
-            reportName: 'Robot Report',
-            reportDir: 'reports',
-            reportFiles: 'report.html,log.html',
-            keepAll: true,
-            alwaysLinkToLastBuild: true,
-            allowMissing: true
-          ])
-        }
-      }
     }
   }
 }
