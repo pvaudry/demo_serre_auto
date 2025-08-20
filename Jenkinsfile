@@ -11,15 +11,41 @@ pipeline {
     stage('Docker/Compose version') {
       steps {
         powershell '''
-          docker version
-          try { docker compose version } catch { if (Get-Command docker-compose -ErrorAction SilentlyContinue) { docker-compose --version } }
+          # Résout docker.exe via chemin absolu (utile pour le service Jenkins)
+          $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
+          if (-not (Test-Path $docker)) { $docker = 'docker' }
+
+          & $docker 'version'
+
+          # Test Compose v2
+          $useV2 = $false
+          try {
+            & $docker 'compose' 'version'
+            $useV2 = $true
+            Write-Host "Compose v2 détecté via: $docker compose"
+          } catch {
+            # Essai Compose v1
+            $dc = (Get-Command docker-compose -ErrorAction SilentlyContinue)
+            if ($dc) {
+              & $dc.Source '--version'
+              Write-Host "Compose v1 détecté: $($dc.Source)"
+            } else {
+              throw "Ni 'docker compose' (v2) ni 'docker-compose' (v1) n'est disponible dans ce contexte Jenkins."
+            }
+          }
         '''
       }
     }
 
     stage('Build app image') {
       steps {
-        powershell 'docker build -t serre-app:ci .'
+        powershell '''
+          $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
+          if (-not (Test-Path $docker)) { $docker = 'docker' }
+
+          & $docker 'build' '-t' 'serre-app:ci' '.'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        '''
       }
     }
 
@@ -28,23 +54,34 @@ pipeline {
         powershell '''
           $ErrorActionPreference = "Stop"
 
-          # Détecte la bonne commande compose (v2 vs v1)
-          $composeCmd = "docker compose"
-          try { & docker compose version | Out-Null }
-          catch {
-            if (Get-Command docker-compose -ErrorAction SilentlyContinue) { $composeCmd = "docker-compose" }
-            else { throw "Ni 'docker compose' ni 'docker-compose' n'est disponible." }
+          $docker = Join-Path $Env:ProgramFiles 'Docker\\Docker\\resources\\bin\\docker.exe'
+          if (-not (Test-Path $docker)) { $docker = 'docker' }
+
+          $composeFile = Join-Path $pwd 'docker-compose.ci.yml'
+
+          # Détecte Compose v2 (docker compose) ou v1 (docker-compose)
+          $useV2 = $true
+          try {
+            & $docker 'compose' 'version' | Out-Null
+          } catch {
+            $useV2 = $false
+            $dc = (Get-Command docker-compose -ErrorAction SilentlyContinue)
+            if (-not $dc) { throw "Ni 'docker compose' ni 'docker-compose' trouvé." }
+            $dockerCompose = $dc.Source
           }
 
-          # Chemin du fichier compose (gère les espaces dans le workspace)
-          $composeFile = Join-Path $pwd "docker-compose.ci.yml"
+          # Helper pour appeler compose proprement (tokens séparés)
+          function Invoke-Compose([string[]]$Args) {
+            if ($useV2) { & $docker 'compose' @Args }
+            else        { & $dockerCompose @Args }
+          }
 
-          # Lancer les services et faire échouer sur le code du conteneur robot
-          & $composeCmd -f $composeFile up --abort-on-container-exit --exit-code-from robot
+          # up + collecte du code retour du conteneur robot
+          Invoke-Compose @('-f', $composeFile, 'up', '--abort-on-container-exit', '--exit-code-from', 'robot')
           $code = $LASTEXITCODE
 
-          # Toujours tenter un down (sans casser le build si ça rate)
-          try { & $composeCmd -f $composeFile down -v | Out-Null } catch { Write-Host "compose down a échoué (ignoré): $($_.Exception.Message)" }
+          # down -v (ne casse pas le build si ça échoue)
+          try { Invoke-Compose @('-f', $composeFile, 'down', '-v') | Out-Null } catch { Write-Host "compose down ignoré: $($_.Exception.Message)" }
 
           if ($code -ne 0) { exit $code }
         '''
@@ -54,9 +91,7 @@ pipeline {
 
   post {
     always {
-      // Archive les rapports Robot même en cas d'échec
       archiveArtifacts artifacts: 'reports/**', fingerprint: true, allowEmptyArchive: true
-      // (Optionnel) publier le report HTML si plugin installé
       script {
         if (fileExists('reports/report.html')) {
           publishHTML(target: [
