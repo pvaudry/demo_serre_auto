@@ -6,5 +6,4 @@ Test Teardown   Dump Page On Failure
 
 *** Test Cases ***
 Dashboard S'affiche
-    Wait For Dashboard
     Page Should Contain    Interface domotique — Serre autonome

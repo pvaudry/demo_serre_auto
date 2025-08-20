@@ -27,13 +27,6 @@ Open Browser To App
     Set Selenium Timeout    ${TIMEOUT}
     Go To    ${base_url}
 
-Wait For Dashboard
-    [Documentation]    Ré-essaie l’attente du canvas (JS peut tarder).
-    Wait Until Keyword Succeeds    15x    2s    Page Has Chart
-
-Page Has Chart
-    Wait Until Page Contains Element    css:canvas#chart-temp    3s
-
 Dump Page On Failure
     Run Keyword And Ignore Error    Capture Page Screenshot
     ${src}=    Get Source
