@@ -12,7 +12,7 @@ services:
       retries: 10
 
   chrome:
-    image: selenium/standalone-chrome:latest   # ✅ tag qui existe
+    image: selenium/standalone-chrome:latest   
     container_name: chrome
     shm_size: 2g
     environment:
